@@ -6,6 +6,7 @@
 #include <errno.h>
 
 #include "string_helpers.h"
+#include "vars.h"
 #include "main.h"
 
 struct scripter_options options;
@@ -17,21 +18,34 @@ int main(int argc, char *argv[]) {
 	FILE *fp = fopen(options.script_filename, "r");
 	if (fp == NULL) {
 		printf("scripter: Unable to open file '%s': %s\n", options.script_filename, strerror(errno));
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	
 	read_file_contents(fp);
 	
 	int i;
-	for (i = 0; i < fc.num_lines; i++) {
+	if (!interactive_mode) for (i = 0; i < fc.num_lines; i++) {
 		if (fc.lines[i][0] == '#') {
-			printf("label on line %d: '%s'\n", i, fc.lines[i]);
+			parse_line_number_label(i);
 		}
 	}
-	for (i = 0; i < fc.num_lines; i++) {
-		printf("[%d]: '%s'\n", i, fc.lines[i]);
-	}
 	
+	for (i = 0; i < fc.num_lines; i++) {
+		switch (fc.num_lines[i][0]) {
+			case '$':
+				define_variable(i);
+			case '#':
+				if (interactive_mode) parse_line_number_label(i);
+				break;
+			case 'x':
+				if (interactive_mode) exit(EXIT_SUCCESS);
+				// Otherwise, print the default error
+			default:
+				printf("line must start with one of $, -, @, ?, %, >, or #\n");
+				if (!interactive_mode) exit(EXIT_FAILURE);
+				break;
+		}
+	}
 	
 	fclose(fp);
 	
@@ -59,7 +73,7 @@ void read_file_contents(FILE *fp) {
 			fc.lines_size *= 2;
 			char **new_ptr = realloc(fc.lines, sizeof(char *) * fc.lines_size);
 			if (new_ptr == NULL) {
-				print_mem_error(1);
+				print_mem_error(EXIT_FAILURE);
 			}
 			fc.lines = new_ptr;
 		}
@@ -76,13 +90,35 @@ void read_file_contents(FILE *fp) {
 			
 			fc.lines[fc.num_lines] = strdup(new_str);
 			if (fc.lines[fc.num_lines] == NULL) {
-				print_mem_error(1);
+				print_mem_error(EXIT_FAILURE);
 			}
 		}
 		++fc.num_lines;
 	}
 	
 	
+}
+
+void define_variable(int line_num) {
+	struct variable v;
+	char *s;
+	
+	s = fc.lines[line_num];
+}
+
+void parse_line_number_label(int line_num) {
+	struct variable v;
+	char *s;
+	
+	s = fc.lines[line_num];	
+	if (*find_whitespace_char(s)) {
+		printf("scripter: '#' must be followed by label name, instead got '%s'\n", s);
+		exit(EXIT_FAILURE);
+	}
+	
+	v.type = TYPE_INT;
+	v.data.i = line_num;
+	set_label_value(s, &v);
 }
 
 void parse_options(int argc, char *argv[]) {
@@ -108,17 +144,17 @@ void parse_options(int argc, char *argv[]) {
 					options.interactive_mode = 1;
 					break;
 				case 'h':
-					print_usage(0); // no return so doesn't need a break
+					print_usage(EXIT_SUCCESS); // no return so doesn't need a break
 				default:
 					printf("scripter: Invalid option '%s'\n", next_option);
 					print_help_message();
-					exit(1);
+					exit(EXIT_FAILURE);
 			}
 		} else if (strlen_not_zero(next_option)) {
 			if (options.script_filename != NULL) {
 				printf("scripter: Invalid argument '%s': script file already provided\n", next_option);
 				print_help_message();
-				exit(1);
+				exit(EXIT_FAILURE);
 			}
 			options.script_filename = next_option;
 		} // Ignore option if strlen() == 0
@@ -127,7 +163,7 @@ void parse_options(int argc, char *argv[]) {
 	if (!options.interactive_mode && options.script_filename == NULL) {
 		printf("scripter: No script file provided\n");
 		print_help_message();
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 }
 

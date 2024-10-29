@@ -1,7 +1,7 @@
 PROGRAM = scripter
 
-SOURCES = main.c string_helpers.c
-HEADERS = main.h string_helpers.h
+SOURCES = main.c string_helpers.c vars.c
+HEADERS = main.h string_helpers.h vars.h
 
 OBJ_FILES = $(patsubst %.c,%.o,$(SOURCES))
 

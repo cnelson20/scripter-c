@@ -15,6 +15,8 @@ struct file_contents {
 
 int main(int argc, char *argv[]);
 
+void parse_line_number_label(int);
+
 void parse_options(int argc, char *argv[]);
 
 void read_file_contents(FILE *fp);
